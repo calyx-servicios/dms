@@ -1,4 +1,3 @@
-|badge1| |badge2| |badge3|
 
 Document Management System modules for Odoo
 ===========================================
