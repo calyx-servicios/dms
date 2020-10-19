@@ -297,3 +297,38 @@ class DmsSecurityMixin(models.AbstractModel):
     def _compute_groups(self):
         for record in self:
             record.complete_group_ids = record.group_ids
+
+    def _filter_access_rules(self, operation):
+        """ Return the subset of ``self`` for which ``operation`` is allowed. """
+        if self._uid == SUPERUSER_ID:
+            return self
+
+        if self.is_transient():
+            # Only one single implicit access rule for transient models: owner only!
+            # This is ok to hardcode because we assert that TransientModels always
+            # have log_access enabled so that the create_uid column is always there.
+            # And even with _inherits, these fields are always present in the local
+            # table too, so no need for JOINs.
+            query = "SELECT id FROM {} WHERE id IN %s AND create_uid=%s".format(self._table)
+            self._cr.execute(query, (tuple(self.ids), self._uid))
+            return self.browse([row[0] for row in self._cr.fetchall()])
+
+        where_clause, where_params, tables = self.env['ir.rule'].domain_get(self._name, operation)
+        if not where_clause:
+            return self
+
+        valid_ids = []
+        query = "SELECT {}.id FROM {} WHERE {}.id IN %s AND {}".format(
+            self._table, ",".join(tables), self._table, " AND ".join(where_clause),
+        )
+        for sub_ids in self._cr.split_for_in_conditions(self.ids):
+            self._cr.execute(query, [sub_ids] + where_params)
+            valid_ids.extend(row[0] for row in self._cr.fetchall())
+        return self.browse(valid_ids)
+
+    @classmethod
+    def is_transient(cls):
+        """ Return whether the model is transient.
+        See :class:`TransientModel`.
+        """
+        return cls._transient
