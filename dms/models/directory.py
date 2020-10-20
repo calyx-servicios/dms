@@ -501,15 +501,15 @@ class DmsDirectory(models.Model):
             names.append(uname)
 
     @api.model
-    def create(self, vals_list):
-        for vals in vals_list:
-            if vals.get("root_storage_id", False):
-                vals["storage_id"] = vals["root_storage_id"]
-            if vals.get("parent_id", False):
-                parent = self.browse([vals["parent_id"]])
-                data = next(iter(parent.sudo().read(["storage_id"])), {})
-                vals["storage_id"] = self._convert_to_write(data).get("storage_id")
-        return super().create(vals_list)
+    def create(self, vals):
+        # for vals in vals_list:
+        if vals.get("root_storage_id", False):
+            vals["storage_id"] = vals["root_storage_id"]
+        if vals.get("parent_id", False):
+            parent = self.browse([vals["parent_id"]])
+            data = next(iter(parent.sudo().read(["storage_id"])), {})
+            vals["storage_id"] = self._convert_to_write(data).get("storage_id")
+        return super().create(vals)
 
     def write(self, vals):
         # Groups part
